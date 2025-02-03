@@ -212,43 +212,6 @@ class AutoDetouringMenu(bpy.types.Panel) :
         layout.operator("autodetour.process")
         layout.label(text=mytool.mreturn)
         layout.separator()
-        
-
-# class AutoDetouringPlugin(Operator, ImportHelper):
-#     bl_idname = 'printingtools.autodetour'
-#     bl_label = 'Import Path'
-#     bl_options = {'PRESET', 'UNDO'}
- 
-#     filename_ext = '.npy'
-    
-#     filter_glob: StringProperty(
-#         default='*.npy',
-#         options={'HIDDEN'}
-#     )
- 
-#     def execute(self, context):
-
-#         verts = []
-#         edges = []
-#         faces = []
-
-#         path = np.load(self.filepath)
-#         last_p = []
-#         for p in path :
-#             verts.append([p[0], p[1], 0])
-#             # if len(last_p) :
-#             #     edges.append([[last_p[0], last_p[1], 0], [p[0], p[1], 0]]) # add a new edge
-#             last_p = p
-
-#         mesh = bpy.data.meshes.new("PathMesh")  # add the new mesh
-#         obj = bpy.data.objects.new(mesh.name, mesh)
-#         col = bpy.data.collections["Collection"]
-#         col.objects.link(obj)
-#         bpy.context.view_layer.objects.active = obj
-
-#         mesh.from_pydata(verts, edges, faces)        
-
-#         return {'FINISHED'}
  
 
 # ------------------------------------------------------------------------
