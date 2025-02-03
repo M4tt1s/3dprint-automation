@@ -28,6 +28,7 @@ from bpy.types import (Panel,
                        Operator,
                        PropertyGroup,
                        )
+from bpy_extras.io_utils import ImportHelper
 
 import bmesh
 
@@ -58,7 +59,7 @@ class AutoDetouringProps(PropertyGroup) :
         )
     
     msize: IntProperty(
-        name = "Generated mesh size",
+        name = "Size",
         description="Width of the genereated mesh",
         default = 1,
         min = 1,
@@ -80,7 +81,7 @@ class AutoDetouringProps(PropertyGroup) :
         min = 100,
         max = 1000
         )
-    
+
     mreturn: StringProperty(
         name="Process message",
         description="Return message from process",
@@ -93,40 +94,44 @@ class AutoDetouringProps(PropertyGroup) :
 #    Operators
 # ------------------------------------------------------------------------
 
-class AutoDetouringChooseFile(Operator) :
+class AutoDetouringChooseFile(Operator, ImportHelper) :
 
-    bl_label = "Open browser to choose image file"
-    bl_idname = "autodetour.choosefile" 
+    bl_label = "Select image"
+    bl_idname = "autodetour.choosefile"
+    bl_options = {'PRESET', 'UNDO'}
+    
+    filter_glob: StringProperty(
+        default='*.jpg;*.jpeg;*.png;*.tif;*.tiff;*.bmp',
+        options={'HIDDEN'}
+    )
     
     def execute(self, context):
         scene = context.scene
         mytool = scene.my_tool
 
+        mytool.mfile = self.filepath
+
 class AutoDetouringProcess(Operator) :
 
-    bl_label = "Creates automatic mesh from image"
+    bl_label = "Process"
     bl_idname = "autodetour.process" 
     
     def execute(self, context):
         scene = context.scene
         mytool = scene.my_tool
 
-        # print the values to the console
-        print("Hello World")
-        print("bool state:", mytool.my_bool)
-        print("int value:", mytool.my_int)
-        print("float value:", mytool.my_float)
-        print("string value:", mytool.my_string)
-        print("enum selection:", mytool.my_enum)
+        if mytool.mfile == "" :
+            return {'FINISHED'}
 
         img = cv.imread(mytool.mfile)
         if img is None or img.size == 0:
             mytool.mreturn = f"Unable to read image {mytool.mfile}."
+            return {'FINISHED'}
         
         gray_img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         edge_img = cv.Canny(gray_img, threshold1=450, threshold2=600)
 
-        ratio = mytool.mwidth / len(edge_img[0])
+        ratio = mytool.msize / len(edge_img[0])
 
         path = []
 
@@ -135,7 +140,26 @@ class AutoDetouringProcess(Operator) :
                 if edge_img[i][j] == 255 :
                     path.append([i * ratio, j * ratio])
 
-        data = np.array(path)
+        path = np.array(path)
+
+        verts = []
+        edges = []
+        faces = []
+
+        last_p = []
+        for p in path :
+            verts.append([p[0], p[1], 0])
+            # if len(last_p) :
+            #     edges.append([[last_p[0], last_p[1], 0], [p[0], p[1], 0]]) # add a new edge
+            last_p = p
+
+        mesh = bpy.data.meshes.new("PathMesh")  # add the new mesh
+        obj = bpy.data.objects.new(mesh.name, mesh)
+        col = bpy.data.collections["Collection"]
+        col.objects.link(obj)
+        bpy.context.view_layer.objects.active = obj
+
+        mesh.from_pydata(verts, edges, faces)
 
         return {'FINISHED'}
 
@@ -170,16 +194,20 @@ class AutoDetouringMenu(bpy.types.Panel) :
         scene = context.scene
         mytool = scene.my_tool
 
+        layout.separator(factor=.5)
+
         layout.prop(mytool, "mthick")
         layout.prop(mytool, "msize")
         layout.prop(mytool, "mythresh1")
         layout.prop(mytool, "mythresh2")
+        layout.separator(factor=.5)
 
-        layout.separator(factor=1.5)
+        layout.separator(factor=.5)
         layout.menu(AutoDetouringMenu.bl_idname, text="Choose Image", icon="SCENE")
         layout.operator("autodetour.choosefile")
+        layout.label(text=mytool.mfile)
 
-        layout.separator(factor=1.5)
+        layout.separator(factor=.5)
         layout.menu(AutoDetouringMenu.bl_idname, text="Process", icon="SCENE")
         layout.operator("autodetour.process")
         layout.label(text=mytool.mreturn)
